@@ -2,11 +2,11 @@
 // http://localhost:3000/isolated/exercise/04.js
 
 import * as React from 'react'
-
+//first is uselayout, second is useeffect is the best- we know because the useRef is here!it makes an observable change to the dom!
 function MessagesDisplay({messages}) {
   const containerRef = React.useRef()
   // 🐨 replace useEffect with useLayoutEffect
-  React.useEffect(() => {
+  React.useLayoutEffect(() => {
     containerRef.current.scrollTop = containerRef.current.scrollHeight
   })
 
@@ -33,6 +33,7 @@ function SlooooowSibling() {
   // how it impacts interactivity of the page before updates.
   React.useEffect(() => {
     // increase this number to see a more stark difference
+    //it becomes suuuper slow with 3000 if uselayout is there
     sleep(300)
   })
   return null

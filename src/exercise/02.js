@@ -10,74 +10,69 @@ import {
   PokemonErrorBoundary,
 } from '../pokemon'
 
-// 🐨 this is going to be our generic asyncReducer
-function pokemonInfoReducer(state, action) {
+// 🐨 this is going to be our generic asyncReducer, here we define the actions and states
+
+function asyncReducer(state, action) {
   switch (action.type) {
     case 'pending': {
-      // 🐨 replace "pokemon" with "data"
-      return {status: 'pending', pokemon: null, error: null}
+      return { status: 'pending', data: null, error: null }
     }
     case 'resolved': {
-      // 🐨 replace "pokemon" with "data" (in the action too!)
-      return {status: 'resolved', pokemon: action.pokemon, error: null}
+      return {status: 'resolved', data: action.data, error: null}
     }
     case 'rejected': {
-      // 🐨 replace "pokemon" with "data"
-      return {status: 'rejected', pokemon: null, error: action.error}
+      return { status: 'rejected', data: null, error: action.error }
     }
     default: {
       throw new Error(`Unhandled action type: ${action.type}`)
     }
   }
+  
 }
-
-function PokemonInfo({pokemonName}) {
-  // 🐨 move both the useReducer and useEffect hooks to a custom hook called useAsync
-  // here's how you use it:
-  // const state = useAsync(
-  //   () => {
-  //     if (!pokemonName) {
-  //       return
-  //     }
-  //     return fetchPokemon(pokemonName)
-  //   },
-  //   {status: pokemonName ? 'pending' : 'idle'},
-  //   [pokemonName],
-  // )
-  // 🐨 so your job is to create a useAsync function that makes this work.
-  const [state, dispatch] = React.useReducer(pokemonInfoReducer, {
-    status: pokemonName ? 'pending' : 'idle',
-    // 🐨 this will need to be "data" instead of "pokemon"
-    pokemon: null,
+//I did not  add here the run function. I will have it in a sep. file. I need to come back with e fresher mind!
+//this hook does all the heavy lifting
+function useAsync(asyncCallback, initialState) {
+  const [state, dispatch] = React.useReducer(asyncReducer, {
+    status: 'idle',
+    data: null,
     error: null,
+    ...initialState,
   })
 
   React.useEffect(() => {
-    // 💰 this first early-exit bit is a little tricky, so let me give you a hint:
-    // const promise = asyncCallback()
-    // if (!promise) {
-    //   return
-    // }
-    // then you can dispatch and handle the promise etc...
-    if (!pokemonName) {
+    const promise = asyncCallback()
+    if (!promise) {
       return
     }
     dispatch({type: 'pending'})
-    fetchPokemon(pokemonName).then(
-      pokemon => {
-        dispatch({type: 'resolved', pokemon})
+    promise.then(
+      data => {
+        dispatch({type: 'resolved', data})
       },
       error => {
         dispatch({type: 'rejected', error})
       },
     )
-    // 🐨 you'll accept dependencies as an array and pass that here.
-    // 🐨 because of limitations with ESLint, you'll need to ignore
-    // the react-hooks/exhaustive-deps rule. We'll fix this in an extra credit.
-  }, [pokemonName])
+    }, [asyncCallback])
+    
+  // }, dependencies)
+  //here he disabled eslint
+  // we do not include fetchPokemon, because it is a modular import and it does not change
+  // if we include asyncCallback, it will be called every single time when it rerenders and because we have to define it in the render, it will be always recreated
+  //dependencies is the 3rd argument as a workaround
+  return state // we need to return the state, otherwise it will be an undefined error
+}
+function PokemonInfo({ pokemonName }) {
+  const {data: pokemon, status, error, run} = useAsync({
+  status: pokemonName ? 'pending' : 'idle',
+})
 
-  // 🐨 this will change from "pokemon" to "data"
-  const {pokemon, status, error} = state
+React.useEffect(() => {
+  if (!pokemonName) {
+    return
+  }
+  run(fetchPokemon(pokemonName))
+}, [pokemonName, run])
 
   if (status === 'idle' || !pokemonName) {
     return 'Submit a pokemon'
