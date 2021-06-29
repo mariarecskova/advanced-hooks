@@ -1,5 +1,6 @@
 // useCallback: custom hooks
-// http://localhost:3000/isolated/exercise/02.js
+// 💯 make safeDispatch with useCallback, useRef, and useEffect
+// http://localhost:3000/isolated/final/02.extra-3.js
 
 import * as React from 'react'
 import {
@@ -10,69 +11,92 @@ import {
   PokemonErrorBoundary,
 } from '../pokemon'
 
+function useSafeDispatch(dispatch) {
+  const mountedRef = React.useRef(false) //init
+
+  // to make this even more generic you should use the useLayoutEffect hook to
+  // make sure that you are correctly setting the mountedRef.current immediately
+  // after React updates the DOM. Even though this effect does not interact
+  // with the dom another side effect inside a useLayoutEffect which does
+  // interact with the dom may depend on the value being set
+  React.useLayoutEffect(() => {
+    mountedRef.current = true //mounted
+    return () => {
+      mountedRef.current = false //unmounted=cleanup 
+    }
+  }, [])
+
+  return React.useCallback(
+    (...args) => (mountedRef.current ? dispatch(...args) : void 0),
+    [dispatch],
+    //only calls it when mounted
+  )
+}
 
 function asyncReducer(state, action) {
   switch (action.type) {
     case 'pending': {
-      return { status: 'pending', data: null, error: null }
+      return {status: 'pending', data: null, error: null}
     }
     case 'resolved': {
       return {status: 'resolved', data: action.data, error: null}
     }
     case 'rejected': {
-      return { status: 'rejected', data: null, error: action.error }
+      return {status: 'rejected', data: null, error: action.error}
     }
     default: {
       throw new Error(`Unhandled action type: ${action.type}`)
     }
   }
-  
 }
-//this hook does all the heavy lifting
-function useAsync(asyncCallback, initialState) {
-  const [state, dispatch] = React.useReducer(asyncReducer, {
+
+function useAsync(initialState) {
+  //if you are calling this function, it is gonna trigger a rerender
+  const [state, unsafeDispatch] = React.useReducer(asyncReducer, {
     status: 'idle',
     data: null,
     error: null,
     ...initialState,
   })
 
-  React.useEffect(() => {
-    const promise = asyncCallback()
-    if (!promise) {
-      return
-    }
-    dispatch({type: 'pending'})
-    promise.then(
-      data => {
-        dispatch({type: 'resolved', data})
-      },
-      error => {
-        dispatch({type: 'rejected', error})
-      },
-    )
-  }, [asyncCallback])
-  return state
+  const dispatch = useSafeDispatch(unsafeDispatch)
+
+  const {data, error, status} = state
+
+  const run = React.useCallback(
+    promise => {
+      dispatch({type: 'pending'})
+      promise.then(
+        data => {
+          dispatch({type: 'resolved', data})
+        },
+        error => {
+          dispatch({type: 'rejected', error})
+        },
+      )
+    },
+    [dispatch],
+  )
+
+  return {
+    error,
+    status,
+    data,
+    run,
+  }
 }
-  // }, dependencies)
-  //here he disabled eslint
-  // we do not include fetchPokemon, because it is a modular import and it does not change
-  // if we include asyncCallback, it will be called every single time when it rerenders and because we have to define it in the render, it will be always recreated
-  //dependencies is the 3rd argument as a workaround
-  // we need to return the state, otherwise it will be an undefined error
 
 function PokemonInfo({pokemonName}) {
-  const asyncCallback = React.useCallback(() => {
-    if (!pokemonName) {
-      return
-    }
-    return fetchPokemon(pokemonName)
-  }, [pokemonName])
-  const state = useAsync(asyncCallback, {
+  const {data: pokemon, status, error, run} = useAsync({
     status: pokemonName ? 'pending' : 'idle',
   })
 
-  const {data: pokemon, status, error} = state
+  React.useEffect(() => {
+    if (!pokemonName) {
+      return
+    }
+    run(fetchPokemon(pokemonName))
+  }, [pokemonName, run])
 
   if (status === 'idle') {
     return 'Submit a pokemon'

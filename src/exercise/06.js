@@ -3,10 +3,12 @@
 
 import * as React from 'react'
 
+const formatCountDebugValue = ({query, state}) =>
+  `\`${query}\` => ${state}` //we do not want to use it, only if it is for some optimisation, because only the devs will see it in the devtools...
+
 function useMedia(query, initialState = false) {
   const [state, setState] = React.useState(initialState)
-  // 🐨 call React.useDebugValue here.
-  // 💰 here's the formatted label I use: `\`${query}\` => ${state}`
+  React.useDebugValue({query, state}, formatCountDebugValue) //here is enough if we leave it like this, it will show the relevant info in the custom hook. it ONLY works in the custom hook, cannot put it anywhere else
 
   React.useEffect(() => {
     let mounted = true
